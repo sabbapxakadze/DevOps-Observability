@@ -136,24 +136,4 @@ Three complementary strategies:
 3. **Log volume reduction** — Avoid logging every request at `DEBUG` level in production. Use `INFO`/`WARN` for steady-state operations, rely on Prometheus counters for per-request metrics (not log lines), and configure Promtail pipeline `drop` stages to discard high-frequency low-value entries (e.g., health-check pings) before they reach Loki.
 
 ---
-
-## Publishing to GitHub
-
-```bash
-# In the project folder:
-git init
-git add .
-git commit -m "feat: complete observability lab — Prometheus, Loki, Grafana, Node.js app"
-
-# Create a new empty repo on GitHub (no README), then:
-git remote add origin https://github.com/YOUR_USERNAME/devops-observability-lab.git
-git branch -M main
-git push -u origin main
-```
-
-After pushing, add your screenshots to the `screenshots/` folder and commit them:
-```bash
-git add screenshots/
-git commit -m "docs: add evidence screenshots"
-git push
 ```
