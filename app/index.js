@@ -52,6 +52,10 @@ app.get('/metrics', async (req, res) => {
   res.end(await register.metrics());
 });
 
-app.listen(3000, () => {
-  log('info', 'Application started', { port: 3000 });
-});
+if (require.main === module) {
+  app.listen(3000, () => {
+    log('info', 'Application started', { port: 3000 });
+  });
+}
+
+module.exports = app;
