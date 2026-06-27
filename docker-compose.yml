@@ -9,6 +9,12 @@ services:
     networks:
       - observability
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/ > /dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      start_period: 15s
+      retries: 3
 
   prometheus:
     image: prom/prometheus:v2.47.0
@@ -25,6 +31,12 @@ services:
     networks:
       - observability
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9090/-/healthy > /dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      start_period: 15s
+      retries: 3
 
   loki:
     image: grafana/loki:2.9.0
@@ -38,6 +50,12 @@ services:
     networks:
       - observability
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3100/ready > /dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      start_period: 20s
+      retries: 3
 
   promtail:
     image: grafana/promtail:2.9.0
@@ -49,9 +67,17 @@ services:
     networks:
       - observability
     depends_on:
-      - loki
-      - app
+      loki:
+        condition: service_healthy
+      app:
+        condition: service_healthy
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9080/ready > /dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      start_period: 15s
+      retries: 3
 
   grafana:
     image: grafana/grafana:10.1.0
@@ -70,9 +96,17 @@ services:
     networks:
       - observability
     depends_on:
-      - prometheus
-      - loki
+      prometheus:
+        condition: service_healthy
+      loki:
+        condition: service_healthy
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/health > /dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      start_period: 30s
+      retries: 3
 
 networks:
   observability:
