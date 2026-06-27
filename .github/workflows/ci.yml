@@ -62,10 +62,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: scan filesystem for vulnerabilities with trivy
-        uses: aquasecurity/trivy-action@0.28.0
-        with:
-          scan-type: fs
-          scan-ref: ./app
-          severity: HIGH,CRITICAL
-          exit-code: "0"
-          format: table
+        run: |
+          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
+          trivy fs ./app --severity HIGH,CRITICAL --exit-code 0 --format table
