@@ -65,3 +65,25 @@ jobs:
         run: |
           curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
           trivy fs ./app --severity HIGH,CRITICAL --exit-code 0 --format table
+
+  deploy:
+    name: deploy
+    needs: [test, security]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: checkout code
+        uses: actions/checkout@v4
+
+      - name: validate compose configuration
+        run: docker compose config
+
+      - name: build images
+        run: docker compose build
+
+      - name: verify deployment readiness
+        run: |
+          echo "All checks passed. Stack is ready to deploy."
+          echo "Deploy target: local Docker Compose"
+          echo "Triggered by: ${{ github.actor }} on ${{ github.ref }}"
