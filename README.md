@@ -295,6 +295,71 @@ All PRs must pass the full CI pipeline (both `test` and `security` jobs) before 
 
 ---
 
+## Observability Analysis
+
+### Why JSON Logging is More Efficient than Plain Text
+
+Plain text logs are human-readable but machine-unfriendly. Parsing them requires fragile regex patterns that break whenever the message format changes. JSON logs treat every field as a first-class, typed key-value pair.
+
+**Concrete advantages in this project:**
+
+| Concern | Plain text | JSON (this project) |
+|---|---|---|
+| Parsing | Regex per log format | Zero-config — any JSON parser |
+| Field extraction | Error-prone, format-dependent | `level`, `endpoint`, `status` extracted automatically by Promtail |
+| Querying in Loki | Full-text search only | Label-based index: `{level="error"}`, `{endpoint="/error"}` |
+| Log volume | Verbose free-text | Only structured fields — no repeated boilerplate |
+| Tooling compatibility | Varies | Universal — Loki, Elasticsearch, Splunk, CloudWatch all ingest JSON natively |
+
+Promtail's pipeline in this project reads the `level` and `endpoint` fields directly from JSON and promotes them to Loki index labels. This means filtering `{service="app", level="error"}` hits the index rather than scanning every log line — orders of magnitude faster at scale.
+
+### Prometheus Metrics vs Log Aggregation — Technical Difference
+
+These two systems answer fundamentally different questions and should not be treated as interchangeable.
+
+**Prometheus (metrics)** stores time-series of numeric measurements. Each metric is a counter, gauge, histogram, or summary scraped at a fixed interval. It is optimised for aggregation: `rate()`, `sum()`, `avg()` across thousands of time points run in milliseconds. Prometheus does not store context — a counter incrementing tells you *how many* errors occurred, not *which request* caused them or *what the error message was*.
+
+**Loki (log aggregation)** stores the full text of every log event with a timestamp and a set of labels. It is optimised for retrieval: given a label selector and a time range, return the exact log lines. It answers *why* and *what happened* — the stack trace, the user ID, the request payload.
+
+**How they complement each other in this project:**
+
+```
+Prometheus alert fires: rate(app_errors_total[1m]) * 60 > 5
+        ↓
+"Something is wrong — the error rate is too high"
+        ↓
+Switch to Grafana Explore → Loki → {service="app", level="error"}
+        ↓
+"Here are the 12 exact error log lines, with endpoint and stack trace"
+```
+
+Metrics detect and alert; logs explain and diagnose. Running both is not redundant — it is the standard observability pattern (often called the three pillars: metrics, logs, traces).
+
+### Long-Term Log Retention Without Exhausting Storage
+
+Unbounded log accumulation will eventually fill any disk. The standard approach is a combination of retention policies, compaction, and tiered storage.
+
+**Strategies:**
+
+**1. Retention limits (implemented in this project)**
+Loki's config (`loki/loki-config.yml`) sets `retention_period`. Chunks older than the limit are deleted automatically by the compactor. This bounds storage to a fixed time window.
+
+**2. Log-level filtering before ingestion**
+Promtail can drop `DEBUG` and `INFO` lines in high-volume environments, keeping only `WARN` and `ERROR` in long-term storage. This can reduce ingested volume by 90%+ with no loss of diagnostic value.
+
+**3. Chunk compaction**
+Loki compresses and merges raw chunks into larger, deduplicated blocks over time. The compactor runs on a schedule and reclaims space without manual intervention.
+
+**4. Tiered / object storage**
+For production workloads, Loki supports writing aged chunks to S3-compatible object storage (MinIO, AWS S3, GCS). Hot data stays on fast local disk; cold data moves to cheap object storage automatically. Cost per GB drops by ~10×.
+
+**5. Structured log truncation**
+Long stack traces and request bodies are the biggest contributors to log bloat. Truncating any single field over a defined byte limit at the application layer caps per-event size without losing the key structured fields.
+
+In this lab setup, Loki retains logs in a local Docker volume. For a production deployment, strategy 1 (retention limit) + strategy 3 (compaction) + strategy 4 (object storage) would be combined to keep costs flat as the system scales.
+
+---
+
 ## Screenshots
 
 ### Grafana Dashboard — Application Metrics
