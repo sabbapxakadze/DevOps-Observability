@@ -34,23 +34,7 @@ function log(level, message, extra = {}) {
   }
 }
 
-app.get('/', (req, res) => {
-  requestsTotal.inc();
-  log('info', 'Request received', { endpoint: '/', method: req.method, status: 200 });
-  res.json({ status: 'ok', message: 'Hello from the observability app!' });
-});
-
-app.get('/error', (req, res) => {
-  requestsTotal.inc();
-  errorsTotal.inc();
-  log('error', 'Error endpoint hit', { endpoint: '/error', method: req.method, status: 500 });
-  res.status(500).json({ status: 'error', message: 'Simulated error' });
-});
-
-app.get('/dashboard', (req, res) => {
-  requestsTotal.inc();
-  log('info', 'Request received', { endpoint: '/dashboard', method: req.method, status: 200 });
-  res.send(`<!doctype html>
+const DASHBOARD_HTML = `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -85,6 +69,7 @@ app.get('/dashboard', (req, res) => {
     margin-bottom: 1.5rem;
   }
   .dot { width: 8px; height: 8px; border-radius: 50%; background: #4ade80; }
+  .message { margin: 0 0 1.5rem; color: #b6bac4; font-size: 0.95rem; }
   ul { list-style: none; padding: 0; margin: 0; }
   li + li { margin-top: 0.6rem; }
   a {
@@ -104,18 +89,41 @@ app.get('/dashboard', (req, res) => {
 <body>
   <div class="card">
     <h1>Observability App</h1>
-    <div class="status"><span class="dot"></span> running</div>
+    <div class="status"><span class="dot"></span> status: ok</div>
+    <p class="message">Hello from the observability app!</p>
     <ul>
-      <li><a href="/">GET / — health endpoint</a></li>
       <li><a href="/error">GET /error — simulate an error</a></li>
       <li><a href="/metrics">GET /metrics — Prometheus metrics</a></li>
       <li><a href="http://localhost:3001" target="_blank" rel="noopener">Grafana (:3001)</a></li>
       <li><a href="http://localhost:9090" target="_blank" rel="noopener">Prometheus (:9090)</a></li>
     </ul>
-    <div class="hint">This page is just a landing view — the API responses at / and /error remain JSON.</div>
+    <div class="hint">API clients get the raw JSON here — this page only renders for browsers.</div>
   </div>
 </body>
-</html>`);
+</html>`;
+
+app.get('/', (req, res) => {
+  requestsTotal.inc();
+  log('info', 'Request received', { endpoint: '/', method: req.method, status: 200 });
+  const acceptsHtml = (req.headers.accept || '').includes('text/html');
+  if (acceptsHtml) {
+    res.type('html').send(DASHBOARD_HTML);
+    return;
+  }
+  res.json({ status: 'ok', message: 'Hello from the observability app!' });
+});
+
+app.get('/error', (req, res) => {
+  requestsTotal.inc();
+  errorsTotal.inc();
+  log('error', 'Error endpoint hit', { endpoint: '/error', method: req.method, status: 500 });
+  res.status(500).json({ status: 'error', message: 'Simulated error' });
+});
+
+app.get('/dashboard', (req, res) => {
+  requestsTotal.inc();
+  log('info', 'Request received', { endpoint: '/dashboard', method: req.method, status: 200 });
+  res.type('html').send(DASHBOARD_HTML);
 });
 
 app.get('/metrics', async (req, res) => {
