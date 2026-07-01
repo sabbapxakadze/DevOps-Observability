@@ -88,7 +88,7 @@ After setup, access:
 | Service | URL | Credentials |
 |---|---|---|
 | App | http://localhost:3000 | — |
-| Grafana | http://localhost:3001 | admin / admin |
+| Grafana | http://localhost:3001 | admin / Admin123!@# |
 | Prometheus | http://localhost:9090 | — |
 | Loki API | http://localhost:3100 | — |
 
